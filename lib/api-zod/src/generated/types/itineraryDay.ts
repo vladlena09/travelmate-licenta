@@ -6,15 +6,20 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Poi } from "./poi";
+import type { TransportSegment } from "./transportSegment";
 
 export interface ItineraryDay {
   dayNumber: number;
   theme: string;
   pois: Poi[];
-  /** Total duration in minutes */
+  segments: TransportSegment[];
+  /** Total visit duration in minutes */
   totalDuration: number;
-  /** Total cost in EUR */
+  /** Total travel time between POIs in minutes */
+  travelDuration: number;
   totalCost: number;
-  /** Encoded polyline for the route */
-  routePolyline?: string | null;
+  /** Cumulative budget used up to this day */
+  budgetUsed: number;
+  /** Human-readable transport description for the day */
+  transportSummary: string;
 }

@@ -22,31 +22,11 @@ export interface GeocodedLocation {
   displayName: string;
 }
 
-export type PoiCategory = (typeof PoiCategory)[keyof typeof PoiCategory];
-
-export const PoiCategory = {
-  history: "history",
-  gastronomy: "gastronomy",
-  culture: "culture",
-  nature: "nature",
-  architecture: "architecture",
-  nightlife: "nightlife",
-  sports: "sports",
-  relaxation: "relaxation",
-  photography: "photography",
-  landmark: "landmark",
-  museum: "museum",
-  park: "park",
-  viewpoint: "viewpoint",
-  religious: "religious",
-  entertainment: "entertainment",
-} as const;
-
 export interface Poi {
   id: string;
   name: string;
   description?: string;
-  category: PoiCategory;
+  category: string;
   lat: number;
   lon: number;
   /** Duration in minutes */
@@ -57,21 +37,15 @@ export interface Poi {
   isFree: boolean;
   optionalPaidExperience?: string | null;
   optionalPaidCost?: number | null;
-  /** Score from 0-100 */
   popularityScore: number;
   imageUrl?: string | null;
   address?: string | null;
   openingHours?: string | null;
+  /** Estimated walking minutes from previous POI */
+  walkingMinutesFromPrev?: number | null;
+  /** Transport hint for getting to this POI */
+  transportNote?: string | null;
 }
-
-export type ItineraryRequestBudgetLevel =
-  (typeof ItineraryRequestBudgetLevel)[keyof typeof ItineraryRequestBudgetLevel];
-
-export const ItineraryRequestBudgetLevel = {
-  low: "low",
-  medium: "medium",
-  high: "high",
-} as const;
 
 export type ItineraryRequestTravelRhythm =
   (typeof ItineraryRequestTravelRhythm)[keyof typeof ItineraryRequestTravelRhythm];
@@ -124,32 +98,52 @@ export interface ItineraryRequest {
    * @maximum 14
    */
   days: number;
-  budgetLevel: ItineraryRequestBudgetLevel;
+  /**
+   * Total trip budget in EUR (0 = unlimited)
+   * @minimum 0
+   */
+  budgetAmount: number;
   travelRhythm: ItineraryRequestTravelRhythm;
   travelProfile: ItineraryRequestTravelProfile;
   transportMode: ItineraryRequestTransportMode;
   interests: ItineraryRequestInterestsItem[];
 }
 
+export interface TransportSegment {
+  fromPoiId: string;
+  toPoiId: string;
+  mode: string;
+  durationMinutes: number;
+  distanceMetres: number;
+  instruction: string;
+}
+
 export interface ItineraryDay {
   dayNumber: number;
   theme: string;
   pois: Poi[];
-  /** Total duration in minutes */
+  segments: TransportSegment[];
+  /** Total visit duration in minutes */
   totalDuration: number;
-  /** Total cost in EUR */
+  /** Total travel time between POIs in minutes */
+  travelDuration: number;
   totalCost: number;
-  /** Encoded polyline for the route */
-  routePolyline?: string | null;
+  /** Cumulative budget used up to this day */
+  budgetUsed: number;
+  /** Human-readable transport description for the day */
+  transportSummary: string;
 }
 
 export interface ItineraryResponse {
   city: string;
-  country?: string;
+  country: string;
   lat: number;
   lon: number;
+  transportMode: string;
   days: ItineraryDay[];
   totalEstimatedCost: number;
+  budgetAmount: number;
+  budgetRemaining: number;
   generatedAt: string;
 }
 

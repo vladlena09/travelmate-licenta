@@ -9,10 +9,13 @@ import type { ItineraryDay } from "./itineraryDay";
 
 export interface ItineraryResponse {
   city: string;
-  country?: string;
+  country: string;
   lat: number;
   lon: number;
+  transportMode: string;
   days: ItineraryDay[];
   totalEstimatedCost: number;
+  budgetAmount: number;
+  budgetRemaining: number;
   generatedAt: string;
 }

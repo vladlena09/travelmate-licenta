@@ -5,13 +5,12 @@
  * TravelMate API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { PoiCategory } from "./poiCategory";
 
 export interface Poi {
   id: string;
   name: string;
   description?: string;
-  category: PoiCategory;
+  category: string;
   lat: number;
   lon: number;
   /** Duration in minutes */
@@ -22,9 +21,12 @@ export interface Poi {
   isFree: boolean;
   optionalPaidExperience?: string | null;
   optionalPaidCost?: number | null;
-  /** Score from 0-100 */
   popularityScore: number;
   imageUrl?: string | null;
   address?: string | null;
   openingHours?: string | null;
+  /** Estimated walking minutes from previous POI */
+  walkingMinutesFromPrev?: number | null;
+  /** Transport hint for getting to this POI */
+  transportNote?: string | null;
 }

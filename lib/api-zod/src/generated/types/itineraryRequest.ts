@@ -5,7 +5,6 @@
  * TravelMate API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { ItineraryRequestBudgetLevel } from "./itineraryRequestBudgetLevel";
 import type { ItineraryRequestInterestsItem } from "./itineraryRequestInterestsItem";
 import type { ItineraryRequestTransportMode } from "./itineraryRequestTransportMode";
 import type { ItineraryRequestTravelProfile } from "./itineraryRequestTravelProfile";
@@ -19,7 +18,11 @@ export interface ItineraryRequest {
    * @maximum 14
    */
   days: number;
-  budgetLevel: ItineraryRequestBudgetLevel;
+  /**
+   * Total trip budget in EUR (0 = unlimited)
+   * @minimum 0
+   */
+  budgetAmount: number;
   travelRhythm: ItineraryRequestTravelRhythm;
   travelProfile: ItineraryRequestTravelProfile;
   transportMode: ItineraryRequestTransportMode;

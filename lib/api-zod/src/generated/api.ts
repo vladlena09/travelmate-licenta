@@ -8,7 +8,6 @@
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -16,7 +15,6 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * Returns geocoded coordinates for a city
  * @summary Geocode a city
  */
 export const GeocodeCityQueryParams = zod.object({
@@ -33,8 +31,7 @@ export const GeocodeCityResponse = zod.object({
 });
 
 /**
- * Returns POIs from OpenStreetMap/Overpass for the given coordinates
- * @summary Get points of interest for a city
+ * @summary Get points of interest
  */
 export const getPoisQueryRadiusDefault = 5000;
 
@@ -50,23 +47,7 @@ export const GetPoisResponse = zod.object({
       id: zod.string(),
       name: zod.string(),
       description: zod.string().optional(),
-      category: zod.enum([
-        "history",
-        "gastronomy",
-        "culture",
-        "nature",
-        "architecture",
-        "nightlife",
-        "sports",
-        "relaxation",
-        "photography",
-        "landmark",
-        "museum",
-        "park",
-        "viewpoint",
-        "religious",
-        "entertainment",
-      ]),
+      category: zod.string(),
       lat: zod.number(),
       lon: zod.number(),
       estimatedDuration: zod.number().describe("Duration in minutes"),
@@ -75,25 +56,37 @@ export const GetPoisResponse = zod.object({
       isFree: zod.boolean(),
       optionalPaidExperience: zod.string().nullish(),
       optionalPaidCost: zod.number().nullish(),
-      popularityScore: zod.number().describe("Score from 0-100"),
+      popularityScore: zod.number(),
       imageUrl: zod.string().nullish(),
       address: zod.string().nullish(),
       openingHours: zod.string().nullish(),
+      walkingMinutesFromPrev: zod
+        .number()
+        .nullish()
+        .describe("Estimated walking minutes from previous POI"),
+      transportNote: zod
+        .string()
+        .nullish()
+        .describe("Transport hint for getting to this POI"),
     }),
   ),
 });
 
 /**
- * Generates a complete day-by-day itinerary based on user preferences
  * @summary Generate a travel itinerary
  */
 export const generateItineraryBodyDaysMax = 14;
+
+export const generateItineraryBodyBudgetAmountMin = 0;
 
 export const GenerateItineraryBody = zod.object({
   city: zod.string(),
   country: zod.string().optional(),
   days: zod.number().min(1).max(generateItineraryBodyDaysMax),
-  budgetLevel: zod.enum(["low", "medium", "high"]),
+  budgetAmount: zod
+    .number()
+    .min(generateItineraryBodyBudgetAmountMin)
+    .describe("Total trip budget in EUR (0 = unlimited)"),
   travelRhythm: zod.enum(["relaxed", "balanced", "dynamic"]),
   travelProfile: zod.enum(["solo", "couple", "family", "group"]),
   transportMode: zod.enum(["walking", "car", "public_transport"]),
@@ -114,9 +107,10 @@ export const GenerateItineraryBody = zod.object({
 
 export const GenerateItineraryResponse = zod.object({
   city: zod.string(),
-  country: zod.string().optional(),
+  country: zod.string(),
   lat: zod.number(),
   lon: zod.number(),
+  transportMode: zod.string(),
   days: zod.array(
     zod.object({
       dayNumber: zod.number(),
@@ -126,23 +120,7 @@ export const GenerateItineraryResponse = zod.object({
           id: zod.string(),
           name: zod.string(),
           description: zod.string().optional(),
-          category: zod.enum([
-            "history",
-            "gastronomy",
-            "culture",
-            "nature",
-            "architecture",
-            "nightlife",
-            "sports",
-            "relaxation",
-            "photography",
-            "landmark",
-            "museum",
-            "park",
-            "viewpoint",
-            "religious",
-            "entertainment",
-          ]),
+          category: zod.string(),
           lat: zod.number(),
           lon: zod.number(),
           estimatedDuration: zod.number().describe("Duration in minutes"),
@@ -151,20 +129,45 @@ export const GenerateItineraryResponse = zod.object({
           isFree: zod.boolean(),
           optionalPaidExperience: zod.string().nullish(),
           optionalPaidCost: zod.number().nullish(),
-          popularityScore: zod.number().describe("Score from 0-100"),
+          popularityScore: zod.number(),
           imageUrl: zod.string().nullish(),
           address: zod.string().nullish(),
           openingHours: zod.string().nullish(),
+          walkingMinutesFromPrev: zod
+            .number()
+            .nullish()
+            .describe("Estimated walking minutes from previous POI"),
+          transportNote: zod
+            .string()
+            .nullish()
+            .describe("Transport hint for getting to this POI"),
         }),
       ),
-      totalDuration: zod.number().describe("Total duration in minutes"),
-      totalCost: zod.number().describe("Total cost in EUR"),
-      routePolyline: zod
+      segments: zod.array(
+        zod.object({
+          fromPoiId: zod.string(),
+          toPoiId: zod.string(),
+          mode: zod.string(),
+          durationMinutes: zod.number(),
+          distanceMetres: zod.number(),
+          instruction: zod.string(),
+        }),
+      ),
+      totalDuration: zod.number().describe("Total visit duration in minutes"),
+      travelDuration: zod
+        .number()
+        .describe("Total travel time between POIs in minutes"),
+      totalCost: zod.number(),
+      budgetUsed: zod
+        .number()
+        .describe("Cumulative budget used up to this day"),
+      transportSummary: zod
         .string()
-        .nullish()
-        .describe("Encoded polyline for the route"),
+        .describe("Human-readable transport description for the day"),
     }),
   ),
   totalEstimatedCost: zod.number(),
+  budgetAmount: zod.number(),
+  budgetRemaining: zod.number(),
   generatedAt: zod.string(),
 });

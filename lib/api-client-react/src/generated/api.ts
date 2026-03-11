@@ -37,7 +37,6 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const getHealthCheckUrl = () => {
@@ -113,7 +112,6 @@ export function useHealthCheck<
 }
 
 /**
- * Returns geocoded coordinates for a city
  * @summary Geocode a city
  */
 export const getGeocodeCityUrl = (params: GeocodeCityParams) => {
@@ -208,8 +206,7 @@ export function useGeocodeCity<
 }
 
 /**
- * Returns POIs from OpenStreetMap/Overpass for the given coordinates
- * @summary Get points of interest for a city
+ * @summary Get points of interest
  */
 export const getGetPoisUrl = (params: GetPoisParams) => {
   const normalizedParams = new URLSearchParams();
@@ -272,7 +269,7 @@ export type GetPoisQueryResult = NonNullable<
 export type GetPoisQueryError = ErrorType<unknown>;
 
 /**
- * @summary Get points of interest for a city
+ * @summary Get points of interest
  */
 
 export function useGetPois<
@@ -295,7 +292,6 @@ export function useGetPois<
 }
 
 /**
- * Generates a complete day-by-day itinerary based on user preferences
  * @summary Generate a travel itinerary
  */
 export const getGenerateItineraryUrl = () => {

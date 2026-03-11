@@ -3,13 +3,15 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: TravelMate API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: travel
+    description: Travel planning operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,102 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /geocode:
+    get:
+      operationId: geocodeCity
+      tags: [travel]
+      summary: Geocode a city
+      description: Returns geocoded coordinates for a city
+      parameters:
+        - name: city
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: country
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Geocoded location
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GeocodedLocation"
+        "404":
+          description: City not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /pois:
+    get:
+      operationId: getPois
+      tags: [travel]
+      summary: Get points of interest for a city
+      description: Returns POIs from OpenStreetMap/Overpass for the given coordinates
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: lon
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: radius
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 5000
+      responses:
+        "200":
+          description: List of POIs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pois:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Poi"
+                required:
+                  - pois
+
+  /itinerary/generate:
+    post:
+      operationId: generateItinerary
+      tags: [travel]
+      summary: Generate a travel itinerary
+      description: Generates a complete day-by-day itinerary based on user preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItineraryRequest"
+      responses:
+        "200":
+          description: Generated itinerary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItineraryResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +132,203 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+
+    GeocodedLocation:
+      type: object
+      properties:
+        city:
+          type: string
+        country:
+          type: string
+        lat:
+          type: number
+        lon:
+          type: number
+        displayName:
+          type: string
+      required:
+        - city
+        - lat
+        - lon
+        - displayName
+
+    Poi:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+          enum:
+            - history
+            - gastronomy
+            - culture
+            - nature
+            - architecture
+            - nightlife
+            - sports
+            - relaxation
+            - photography
+            - landmark
+            - museum
+            - park
+            - viewpoint
+            - religious
+            - entertainment
+        lat:
+          type: number
+        lon:
+          type: number
+        estimatedDuration:
+          type: number
+          description: Duration in minutes
+        estimatedCost:
+          type: number
+          description: Cost in EUR
+        isMustSee:
+          type: boolean
+        isFree:
+          type: boolean
+        optionalPaidExperience:
+          type: string
+          nullable: true
+        optionalPaidCost:
+          type: number
+          nullable: true
+        popularityScore:
+          type: number
+          description: Score from 0-100
+        imageUrl:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        openingHours:
+          type: string
+          nullable: true
+      required:
+        - id
+        - name
+        - category
+        - lat
+        - lon
+        - estimatedDuration
+        - estimatedCost
+        - isMustSee
+        - isFree
+        - popularityScore
+
+    ItineraryRequest:
+      type: object
+      properties:
+        city:
+          type: string
+        country:
+          type: string
+        days:
+          type: number
+          minimum: 1
+          maximum: 14
+        budgetLevel:
+          type: string
+          enum: [low, medium, high]
+        travelRhythm:
+          type: string
+          enum: [relaxed, balanced, dynamic]
+        travelProfile:
+          type: string
+          enum: [solo, couple, family, group]
+        transportMode:
+          type: string
+          enum: [walking, car, public_transport]
+        interests:
+          type: array
+          items:
+            type: string
+            enum:
+              - history
+              - gastronomy
+              - culture
+              - nature
+              - architecture
+              - nightlife
+              - sports
+              - relaxation
+              - photography
+      required:
+        - city
+        - days
+        - budgetLevel
+        - travelRhythm
+        - travelProfile
+        - transportMode
+        - interests
+
+    ItineraryDay:
+      type: object
+      properties:
+        dayNumber:
+          type: number
+        theme:
+          type: string
+        pois:
+          type: array
+          items:
+            $ref: "#/components/schemas/Poi"
+        totalDuration:
+          type: number
+          description: Total duration in minutes
+        totalCost:
+          type: number
+          description: Total cost in EUR
+        routePolyline:
+          type: string
+          nullable: true
+          description: Encoded polyline for the route
+      required:
+        - dayNumber
+        - theme
+        - pois
+        - totalDuration
+        - totalCost
+
+    ItineraryResponse:
+      type: object
+      properties:
+        city:
+          type: string
+        country:
+          type: string
+        lat:
+          type: number
+        lon:
+          type: number
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/ItineraryDay"
+        totalEstimatedCost:
+          type: number
+        generatedAt:
+          type: string
+      required:
+        - city
+        - lat
+        - lon
+        - days
+        - totalEstimatedCost
+        - generatedAt

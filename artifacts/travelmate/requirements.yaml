@@ -1,0 +1,22 @@
+packages:
+  "framer-motion": "Smooth page transitions and staggered cinematic animations"
+  "zustand": "Simple global state management for the multi-step trip wizard"
+  "leaflet": "Interactive maps for the itinerary view"
+  "react-leaflet": "React bindings for Leaflet maps"
+  "@types/leaflet": "TypeScript definitions for Leaflet"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility for merging tailwind classes without style conflicts"
+  "@radix-ui/react-slider": "Accessible slider component for selecting trip duration"
+
+images:
+  - path: "artifacts/travelmate/public/images/hero-bg.png"
+    description: "Cinematic, dark violet and plum twilight landscape with glowing city lights, premium luxury travel mood, highly detailed"
+    aspect_ratio: "16:9"
+  - path: "artifacts/travelmate/public/images/poi-placeholder.png"
+    description: "Abstract, elegant dark violet minimalist landscape icon, subtle glow, glassmorphism style, no text"
+    aspect_ratio: "1:1"
+
+notes:
+  - Using generated Orval hooks from @workspace/api-client-react
+  - React-Leaflet requires leaflet.css to be imported, added to index.css
+  - Map markers use custom divIcons to match the premium theme

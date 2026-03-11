@@ -1,0 +1,391 @@
+You are a senior full-stack architect, Kotlin Android developer, Node.js backend engineer, travel product designer, and UX specialist.
+
+Your task is to **upgrade and complete an existing bachelor thesis project called TravelMate**.
+
+The project already exists partially.
+DO NOT rebuild from scratch.
+Analyze the current state and extend it into a **complete intelligent travel planning system**.
+
+Your output must generate **real production-style code**, clean architecture, and a premium user experience.
+
+---
+
+# PROJECT OVERVIEW
+
+TravelMate is a **premium intelligent travel planner** that automatically generates personalized itineraries for any city in the world.
+
+The system must generate **realistic daily travel plans** and show them visually on an **interactive map with routes**.
+
+The application should feel like a **modern startup-quality travel product**.
+
+---
+
+# CORE INPUT PARAMETERS
+
+The itinerary must be generated based on the following user inputs:
+
+• country
+• city
+• number of days
+• budget level (low / medium / high)
+• travel rhythm (relaxed / balanced / dynamic)
+• travel profile (solo traveler / couple / family / group)
+• transport mode (walking / car / public transport)
+• interests:
+
+* history
+* gastronomy
+* culture
+* nature
+* architecture
+* nightlife
+* sports
+* relaxation
+* photography
+
+---
+
+# TRAVEL RHYTHM LOGIC
+
+The rhythm parameter controls number of attractions per day.
+
+Relaxed
+3-4 attractions per day
+longer pauses, scenic locations, cafes, parks
+
+Balanced
+4-6 attractions per day
+mix of major landmarks and exploration
+
+Dynamic
+6-8 attractions per day
+dense sightseeing schedule
+
+---
+
+# TRAVEL PROFILE ADAPTATION
+
+Solo traveler
+
+* exploration oriented
+* viewpoints
+* local experiences
+* city walks
+
+Couple
+
+* romantic locations
+* scenic viewpoints
+* evening walks
+* aesthetic places
+
+Family
+
+* parks
+* interactive museums
+* zoos
+* safe walking routes
+* shorter distances
+
+Group
+
+* famous landmarks
+* social spaces
+* restaurants
+* panoramic viewpoints
+
+---
+
+# BUDGET ADAPTATION
+
+Low budget
+
+* mostly free attractions
+* parks
+* viewpoints
+* historic districts
+
+Medium budget
+
+* mix of free and ticketed attractions
+
+High budget
+
+* museums
+* observatories
+* premium experiences
+
+---
+
+# FREE VS PAID ATTRACTIONS
+
+Usually FREE:
+
+• viewpoints
+• old town walks
+• bridges
+• historic squares
+• promenades
+• parks
+• public gardens
+• monument exterior views
+• riverside walks
+
+Usually PAID:
+
+• museums
+• palace entry
+• castle entry
+• observatories
+• tower climb
+• cable car
+• cruises
+• exhibitions
+
+Example logic:
+
+Eiffel Tower
+Viewing from outside = free
+Going to the top = optional paid experience
+
+Implement:
+
+isFree
+optionalPaidExperience
+optionalPaidCost
+
+---
+
+# POI MODEL
+
+Each POI must include:
+
+id
+name
+description
+category
+latitude
+longitude
+estimatedDuration
+estimatedCost
+isMustSee
+isFree
+optionalPaidExperience
+optionalPaidCost
+popularityScore
+imageUrl
+
+---
+
+# ITINERARY GENERATION ALGORITHM
+
+The system must:
+
+1. geocode the city
+2. fetch POIs from OpenStreetMap / Overpass
+3. score attractions by popularity
+4. prioritize must-see landmarks
+5. filter by user interests
+6. filter by travel profile
+7. filter by budget
+8. group nearby attractions
+9. distribute across days based on rhythm
+10. generate logical travel order
+
+Avoid random ordering.
+
+Nearby attractions must be grouped in the same day.
+
+---
+
+# MAP REQUIREMENTS
+
+The application must include an **interactive map**.
+
+The map must:
+
+• show user location
+• show attraction markers
+• display routes between attractions
+• update route when user switches day tabs
+• support transport mode routing
+• walking routes
+• car routes
+• architecture ready for public transport
+
+The map must be a **central UI element**, not a small component.
+
+---
+
+# MAIN SCREENS
+
+1 Intro screen
+2 Onboarding
+3 Preferences setup
+4 Trip setup
+5 Itinerary screen
+6 Map view
+7 Profile screen
+
+---
+
+# ITINERARY SCREEN
+
+Must include:
+
+Day tabs (Day 1 / Day 2 / Day 3)
+
+When a day is selected:
+
+• show attractions for that day
+• show route on map
+• show attraction cards
+
+Each attraction card must display:
+
+image
+title
+category
+short description
+duration
+cost
+free indicator
+must-see badge
+
+Also show:
+
+total estimated trip cost
+
+---
+
+# PREMIUM UI DESIGN
+
+The UI must feel **premium, cinematic, and modern**.
+
+Design style inspiration:
+
+violet twilight mountain scenery
+
+Visual direction:
+
+• dark violet palette
+• plum gradients
+• twilight sky colors
+• elegant typography
+• soft glow effects
+• glassmorphism cards
+• premium spacing
+• cinematic hero sections
+
+Avoid flat white layouts.
+
+The interface should feel like a **modern travel startup product**.
+
+---
+
+# TECH STACK
+
+Frontend
+
+Kotlin
+Jetpack Compose
+Clean Architecture
+ViewModel
+StateFlow
+Coroutines
+DataStore
+
+Backend
+
+Node.js
+Express
+Axios
+
+External APIs
+
+Nominatim (geocoding)
+OpenStreetMap / Overpass (POIs)
+
+Provide fallback mock data if APIs fail.
+
+---
+
+# CLEAN ARCHITECTURE
+
+Maintain layers:
+
+UI
+Domain
+Data
+
+Include:
+
+DTOs
+mappers
+repositories
+use cases
+models
+viewmodels
+navigation
+
+Business logic must stay outside UI components.
+
+---
+
+# BACKEND ENDPOINTS
+
+/health
+
+/api/geocode
+
+/api/pois
+
+/api/itinerary/generate
+
+The backend must:
+
+• geocode the city
+• fetch POIs
+• score attractions
+• generate itinerary
+• return structured JSON
+
+---
+
+# EXTENSION ARCHITECTURE
+
+Prepare support for future features:
+
+• local reviews
+• recommendation engine
+• adaptive rerouting if user skips attraction
+• parking information for car travel
+• public transport route data
+
+---
+
+# OUTPUT INSTRUCTIONS
+
+1. Analyze the current TravelMate system.
+2. Identify missing components.
+3. Generate the improved architecture.
+
+Then implement step by step:
+
+1 domain models
+2 POI logic
+3 itinerary generator
+4 backend endpoints
+5 map integration architecture
+6 premium UI theme
+7 itinerary screen
+8 mock data fallback
+9 extension architecture
+
+Always show **file names before code blocks**.
+
+Generate **real code, not pseudo-code**.
+
+The final result must be **a complete intelligent travel planning system suitable for a bachelor thesis project**.
+
+Start by analyzing the missing components and then generate the improved domain models and itinerary generation logic.

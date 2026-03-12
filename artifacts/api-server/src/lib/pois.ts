@@ -312,10 +312,17 @@ export function getMockPois(city: string, lat: number, lon: number): Poi[] {
   if (key.includes("london")) return getLondonPois(lat, lon);
   if (key.includes("amsterdam")) return getAmsterdamPois(lat, lon);
   if (key.includes("vienna") || key.includes("wien")) return getViennaPois(lat, lon);
-  if (key.includes("prague") || key.includes("Praha")) return getPraguePois(lat, lon);
+  if (key.includes("prague") || key.includes("praha")) return getPraguePois(lat, lon);
   if (key.includes("berlin")) return getBerlinPois(lat, lon);
   if (key.includes("istanbul")) return getIstanbulPois(lat, lon);
   if (key.includes("lisbon") || key.includes("lisboa")) return getLisbonPois(lat, lon);
+  if (key.includes("chisinau") || key.includes("chișinău") || key.includes("kishinev")) return getChisinauPois(lat, lon);
+  if (key.includes("budapest")) return getBudapestPois(lat, lon);
+  if (key.includes("madrid")) return getMadridPois(lat, lon);
+  if (key.includes("athens") || key.includes("athina")) return getAthensPois(lat, lon);
+  if (key.includes("tokyo")) return getTokyoPois(lat, lon);
+  if (key.includes("kyoto")) return getKyotoPois(lat, lon);
+  if (key.includes("bucharest") || key.includes("bucurești")) return getBucharestPois(lat, lon);
 
   return getGenericPois(city, lat, lon);
 }

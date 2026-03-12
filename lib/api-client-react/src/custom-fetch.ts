@@ -19,8 +19,6 @@ function resolveMethod(input: RequestInfo | URL, explicitMethod?: string): strin
   return "GET";
 }
 
-// Use loose check for URL — some runtimes (e.g. React Native) polyfill URL
-// differently, so `instanceof URL` can fail.
 function isUrl(input: RequestInfo | URL): input is URL {
   return typeof URL !== "undefined" && input instanceof URL;
 }
@@ -64,8 +62,6 @@ function isTextMediaType(mediaType: string | null): boolean {
   );
 }
 
-// Loose equality (`== null`) handles both `null` (browser) and `undefined`
-// (React Native, which doesn't implement ReadableStream body).
 function hasNoBody(response: Response, method: string): boolean {
   if (method === "HEAD") return true;
   if (NO_BODY_STATUS.has(response.status)) return true;
@@ -118,6 +114,70 @@ function buildErrorMessage(response: Response, data: unknown): string {
   if (title) return `${prefix}: ${title}`;
 
   return prefix;
+}
+
+function resolveApiBase(): string {
+  if (typeof window === "undefined") return "";
+
+  const host = window.location.hostname;
+  const port = window.location.port;
+  const protocol = window.location.protocol;
+
+  const isCapacitor =
+    typeof (window as any).Capacitor !== "undefined" ||
+    typeof (window as any).cordova !== "undefined";
+
+  if (isCapacitor) {
+    return "http://10.0.2.2:3001";
+  }
+
+  const isLocalWeb =
+    (host === "localhost" || host === "127.0.0.1") &&
+    (port === "5173" || port === "3000" || port === "4173");
+
+  if (isLocalWeb) {
+    return "http://localhost:3001";
+  }
+
+  return "";
+}
+
+function resolveFetchUrl(input: RequestInfo | URL): RequestInfo | URL {
+  const rawUrl = resolveUrl(input);
+  const apiBase = resolveApiBase();
+
+  if (!apiBase) return input;
+
+  // leave real external absolute URLs alone
+  if (/^https?:\/\//i.test(rawUrl)) {
+    // rewrite localhost app URLs that accidentally target /api
+    if (
+      rawUrl.startsWith("http://localhost/api/") ||
+      rawUrl.startsWith("https://localhost/api/")
+    ) {
+      const rewritten = rawUrl.replace(
+        /^https?:\/\/localhost/,
+        apiBase,
+      );
+
+      if (typeof input === "string") return rewritten;
+      if (isUrl(input)) return new URL(rewritten);
+      return rewritten;
+    }
+
+    return input;
+  }
+
+  // normal relative API paths
+  if (rawUrl.startsWith("/")) {
+    const finalUrl = `${apiBase}${rawUrl}`;
+
+    if (typeof input === "string") return finalUrl;
+    if (isUrl(input)) return new URL(finalUrl);
+    return finalUrl;
+  }
+
+  return input;
 }
 
 export class ApiError<T = unknown> extends Error {
@@ -207,7 +267,6 @@ async function parseErrorBody(response: Response, method: string): Promise<unkno
 
   const mediaType = getMediaType(response.headers);
 
-  // Fall back to text when blob() is unavailable (e.g. some React Native builds).
   if (mediaType && !isJsonMediaType(mediaType) && !isTextMediaType(mediaType)) {
     return typeof response.blob === "function" ? response.blob() : response.text();
   }
@@ -263,8 +322,7 @@ async function parseSuccessBody(
     case "blob":
       if (typeof response.blob !== "function") {
         throw new TypeError(
-          "Blob responses are not supported in this runtime. " +
-            "Use responseType \"json\" or \"text\" instead.",
+          'Blob responses are not supported in this runtime. Use responseType "json" or "text" instead.',
         );
       }
       return response.blob();
@@ -297,9 +355,10 @@ export async function customFetch<T = unknown>(
     headers.set("accept", DEFAULT_JSON_ACCEPT);
   }
 
-  const requestInfo = { method, url: resolveUrl(input) };
+  const fetchInput = resolveFetchUrl(input);
+  const requestInfo = { method, url: resolveUrl(fetchInput) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  const response = await fetch(fetchInput, { ...init, method, headers });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

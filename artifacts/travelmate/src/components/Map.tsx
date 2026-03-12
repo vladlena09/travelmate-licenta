@@ -1,3 +1,4 @@
+import "leaflet/dist/leaflet.css";
 import { useEffect, useRef, useState } from "react";
 import {
   MapContainer,
@@ -28,18 +29,43 @@ interface MapProps {
   transportMode?: string;
 }
 
+// ── Force Leaflet to recalculate size after mount ─────────────
+function MapResizeFix() {
+  const map = useMap();
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      map.invalidateSize();
+    }, 300);
+
+    return () => window.clearTimeout(id);
+  }, [map]);
+
+  return null;
+}
+
 // ── Fit bounds whenever POIs change ──────────────────────────
 function MapUpdater({ pois }: { pois: Poi[] }) {
   const map = useMap();
+
   useEffect(() => {
-    if (pois.length === 0) return;
-    if (pois.length === 1) {
-      map.setView([pois[0].lat, pois[0].lon], 15, { animate: true });
-      return;
-    }
-    const bounds = L.latLngBounds(pois.map((p) => [p.lat, p.lon]));
-    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16, animate: true });
+    const id = window.setTimeout(() => {
+      map.invalidateSize();
+
+      if (pois.length === 0) return;
+
+      if (pois.length === 1) {
+        map.setView([pois[0].lat, pois[0].lon], 15, { animate: true });
+        return;
+      }
+
+      const bounds = L.latLngBounds(pois.map((p) => [p.lat, p.lon]));
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 16, animate: true });
+    }, 350);
+
+    return () => window.clearTimeout(id);
   }, [pois, map]);
+
   return null;
 }
 
@@ -82,11 +108,13 @@ function UserLocationMarker() {
 
   useEffect(() => {
     if (!navigator.geolocation) return;
+
     const id = navigator.geolocation.watchPosition(
       (p) => setPos([p.coords.latitude, p.coords.longitude]),
       () => {},
       { enableHighAccuracy: true }
     );
+
     return () => navigator.geolocation.clearWatch(id);
   }, []);
 
@@ -168,24 +196,35 @@ function routeConfig(mode: string) {
 // ── Transport legend label ────────────────────────────────────
 function transportLabel(mode: string) {
   switch (mode) {
-    case "walking":          return "🚶 Walking route";
-    case "car":              return "🚗 Driving route";
-    case "public_transport": return "🚌 Transit route";
-    default:                 return "Route";
+    case "walking":
+      return "🚶 Walking route";
+    case "car":
+      return "🚗 Driving route";
+    case "public_transport":
+      return "🚌 Transit route";
+    default:
+      return "Route";
   }
 }
 
 // ── Legend text colour ────────────────────────────────────────
 function legendColor(mode: string) {
   switch (mode) {
-    case "car":              return "#f97316";
-    case "public_transport": return "#60a5fa";
-    default:                 return "#c4b5fd";
+    case "car":
+      return "#f97316";
+    case "public_transport":
+      return "#60a5fa";
+    default:
+      return "#c4b5fd";
   }
 }
 
 // ── Main export ───────────────────────────────────────────────
-export function ItineraryMap({ pois, segments = [], transportMode = "walking" }: MapProps) {
+export function ItineraryMap({
+  pois,
+  segments = [],
+  transportMode = "walking",
+}: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const positions: [number, number][] = pois.map((p) => [p.lat, p.lon]);
   const rc = routeConfig(transportMode);
@@ -201,7 +240,11 @@ export function ItineraryMap({ pois, segments = [], transportMode = "walking" }:
   const center: [number, number] = [pois[0].lat, pois[0].lon];
 
   return (
-    <div ref={containerRef} className="w-full h-full relative">
+    <div
+      ref={containerRef}
+      className="relative w-full h-full min-h-[420px]"
+      style={{ background: "#0d0a1a" }}
+    >
       <MapContainer
         center={center}
         zoom={13}
@@ -209,7 +252,10 @@ export function ItineraryMap({ pois, segments = [], transportMode = "walking" }:
         zoomControl={true}
         attributionControl={true}
       >
-        {/* Dark CartoDB tiles */}
+        <MapResizeFix />
+        <MapUpdater pois={pois} />
+        <UserLocationMarker />
+
         <TileLayer
           attribution='&copy; <a href="https://carto.com/">CartoDB</a>'
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -217,10 +263,6 @@ export function ItineraryMap({ pois, segments = [], transportMode = "walking" }:
           maxZoom={19}
         />
 
-        <MapUpdater pois={pois} />
-        <UserLocationMarker />
-
-        {/* Route: glow shadow layer + styled line */}
         {positions.length > 1 && (
           <>
             <Polyline
@@ -246,9 +288,9 @@ export function ItineraryMap({ pois, segments = [], transportMode = "walking" }:
           </>
         )}
 
-        {/* POI markers */}
         {pois.map((poi, idx) => {
           const seg = idx > 0 ? segments[idx - 1] : null;
+
           return (
             <Marker
               key={poi.id}
@@ -264,7 +306,6 @@ export function ItineraryMap({ pois, segments = [], transportMode = "walking" }:
                     background: "transparent",
                   }}
                 >
-                  {/* Number + name */}
                   <div
                     style={{
                       display: "flex",
@@ -293,7 +334,6 @@ export function ItineraryMap({ pois, segments = [], transportMode = "walking" }:
                     <strong style={{ fontSize: 14, lineHeight: 1.3 }}>{poi.name}</strong>
                   </div>
 
-                  {/* Description */}
                   {poi.description && (
                     <p
                       style={{
@@ -308,7 +348,6 @@ export function ItineraryMap({ pois, segments = [], transportMode = "walking" }:
                     </p>
                   )}
 
-                  {/* Tags */}
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
                     <span
                       style={{
@@ -323,6 +362,7 @@ export function ItineraryMap({ pois, segments = [], transportMode = "walking" }:
                     >
                       {poi.category}
                     </span>
+
                     <span
                       style={{
                         background: "rgba(255,255,255,0.06)",
@@ -334,6 +374,7 @@ export function ItineraryMap({ pois, segments = [], transportMode = "walking" }:
                     >
                       ⏱ {poi.estimatedDuration} min
                     </span>
+
                     <span
                       style={{
                         background: poi.isFree
@@ -348,6 +389,7 @@ export function ItineraryMap({ pois, segments = [], transportMode = "walking" }:
                     >
                       {poi.isFree ? "✓ Free" : `€${poi.estimatedCost}`}
                     </span>
+
                     {poi.isMustSee && (
                       <span
                         style={{
@@ -364,7 +406,6 @@ export function ItineraryMap({ pois, segments = [], transportMode = "walking" }:
                     )}
                   </div>
 
-                  {/* Transport segment to this stop */}
                   {seg && (
                     <p
                       style={{
@@ -379,7 +420,6 @@ export function ItineraryMap({ pois, segments = [], transportMode = "walking" }:
                     </p>
                   )}
 
-                  {/* Opening hours */}
                   {poi.openingHours && (
                     <p style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>
                       🕐 {poi.openingHours}
@@ -392,7 +432,6 @@ export function ItineraryMap({ pois, segments = [], transportMode = "walking" }:
         })}
       </MapContainer>
 
-      {/* Day legend overlay */}
       <div
         style={{
           position: "absolute",
@@ -421,6 +460,7 @@ export function ItineraryMap({ pois, segments = [], transportMode = "walking" }:
         >
           {transportLabel(transportMode)}
         </p>
+
         {pois.map((poi, idx) => (
           <div
             key={poi.id}
@@ -444,6 +484,7 @@ export function ItineraryMap({ pois, segments = [], transportMode = "walking" }:
             >
               {idx + 1}
             </span>
+
             <span
               style={{
                 color: "#e2e8f0",

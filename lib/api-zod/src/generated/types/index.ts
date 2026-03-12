@@ -15,6 +15,8 @@ export * from "./healthStatus";
 export * from "./itineraryDay";
 export * from "./itineraryRequest";
 export * from "./itineraryRequestInterestsItem";
+export * from "./itineraryRequestPriorityMode";
+export * from "./itineraryRequestStartTime";
 export * from "./itineraryRequestTransportMode";
 export * from "./itineraryRequestTravelProfile";
 export * from "./itineraryRequestTravelRhythm";

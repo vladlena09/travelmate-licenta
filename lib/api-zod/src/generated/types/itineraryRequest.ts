@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ItineraryRequestInterestsItem } from "./itineraryRequestInterestsItem";
+import type { ItineraryRequestPriorityMode } from "./itineraryRequestPriorityMode";
+import type { ItineraryRequestStartTime } from "./itineraryRequestStartTime";
 import type { ItineraryRequestTransportMode } from "./itineraryRequestTransportMode";
 import type { ItineraryRequestTravelProfile } from "./itineraryRequestTravelProfile";
 import type { ItineraryRequestTravelRhythm } from "./itineraryRequestTravelRhythm";
@@ -27,4 +29,10 @@ export interface ItineraryRequest {
   travelProfile: ItineraryRequestTravelProfile;
   transportMode: ItineraryRequestTransportMode;
   interests: ItineraryRequestInterestsItem[];
+  /** iconic = prioritize famous landmarks; mixed = blend iconic + hidden gems */
+  priorityMode: ItineraryRequestPriorityMode;
+  /** Preferred start time of day (early=8am, normal=9-10am, late=11am+) */
+  startTime?: ItineraryRequestStartTime;
+  /** If set, only regenerate this specific day number (keep rest unchanged) */
+  regenerateDayNumber?: number;
 }

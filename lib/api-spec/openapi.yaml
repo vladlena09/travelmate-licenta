@@ -256,6 +256,17 @@ components:
               - sports
               - relaxation
               - photography
+        priorityMode:
+          type: string
+          enum: [iconic, mixed]
+          description: iconic = prioritize famous landmarks; mixed = blend iconic + hidden gems
+        startTime:
+          type: string
+          enum: [early, normal, late]
+          description: Preferred start time of day (early=8am, normal=9-10am, late=11am+)
+        regenerateDayNumber:
+          type: number
+          description: If set, only regenerate this specific day number (keep rest unchanged)
       required:
         - city
         - days
@@ -264,6 +275,7 @@ components:
         - travelProfile
         - transportMode
         - interests
+        - priorityMode
 
     TransportSegment:
       type: object

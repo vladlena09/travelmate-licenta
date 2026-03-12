@@ -6,7 +6,7 @@ import {
 } from "@workspace/api-zod";
 import { geocodeCity, getMockGeocode } from "../lib/geocode.js";
 import { fetchPoisFromOverpass, getMockPois } from "../lib/pois.js";
-import { generateItinerary } from "../lib/itinerary.js";
+import { generateItinerary, regenerateSingleDay } from "../lib/itinerary.js";
 
 const router: IRouter = Router();
 
@@ -30,9 +30,7 @@ router.get("/pois", async (req, res) => {
   }
   const { lat, lon, radius } = parsed.data;
   let pois = await fetchPoisFromOverpass(lat, lon, radius ?? 5000);
-  if (pois.length < 5) {
-    pois = getMockPois(`${lat},${lon}`, lat, lon);
-  }
+  if (pois.length < 5) pois = getMockPois(`${lat},${lon}`, lat, lon);
   res.json({ pois });
 });
 
@@ -45,38 +43,30 @@ router.post("/itinerary/generate", async (req, res) => {
 
   const reqData = parsed.data;
 
-  // Expand radius for car users so they get further-away attractions
+  // Overpass radius scales with transport mode
   const overpassRadius =
-    reqData.transportMode === "car"
-      ? 20000
-      : reqData.transportMode === "public_transport"
-      ? 9000
-      : 6000;
+    reqData.transportMode === "car" ? 22000 :
+    reqData.transportMode === "public_transport" ? 9000 : 6000;
 
   let location = await geocodeCity(reqData.city, reqData.country ?? undefined);
   if (!location) location = getMockGeocode(reqData.city);
 
   let overpassPois = await fetchPoisFromOverpass(location.lat, location.lon, overpassRadius);
 
-  // Always seed with mock data for major cities so famous landmarks are guaranteed
+  // Always merge with curated mock data so famous landmarks are guaranteed
   const mockPois = getMockPois(reqData.city, location.lat, location.lon);
-  const hasMockData = mockPois.length > 0 && mockPois[0].id !== `${reqData.city.toLowerCase()}-1`;
-
   if (overpassPois.length < 5) {
-    console.log(`Overpass returned ${overpassPois.length} POIs for ${reqData.city}, using mock data only`);
+    console.log(`Overpass returned ${overpassPois.length} POIs for ${reqData.city}, using mock data`);
     overpassPois = mockPois;
-  } else if (hasMockData || mockPois.length >= 7) {
-    // Merge: mock data provides the guaranteed must-see landmarks; Overpass supplements
-    const overpassNames = new Set(overpassPois.map((p) => p.name.toLowerCase().trim()));
-    const uniqueMock = mockPois.filter((m) => !overpassNames.has(m.name.toLowerCase().trim()));
-    overpassPois = [...mockPois, ...overpassPois.filter((p) => {
-      const n = p.name.toLowerCase().trim();
-      return !mockPois.some((m) => m.name.toLowerCase().trim() === n);
-    })];
-    console.log(`Merged ${uniqueMock.length} mock + ${overpassPois.length} total POIs for ${reqData.city}`);
+  } else if (mockPois.length >= 7) {
+    // Mock data guarantees iconic landmarks; Overpass supplements with real local POIs
+    const mockNames = new Set(mockPois.map((m) => m.name.toLowerCase().trim()));
+    const uniqueOverpass = overpassPois.filter(
+      (p) => !mockNames.has(p.name.toLowerCase().trim())
+    );
+    overpassPois = [...mockPois, ...uniqueOverpass];
+    console.log(`Merged: ${mockPois.length} curated + ${uniqueOverpass.length} Overpass = ${overpassPois.length} total for ${reqData.city}`);
   }
-
-  const pois = overpassPois;
 
   const itineraryReq = {
     city: reqData.city,
@@ -87,15 +77,39 @@ router.post("/itinerary/generate", async (req, res) => {
     travelProfile: reqData.travelProfile as "solo" | "couple" | "family" | "group",
     transportMode: reqData.transportMode as "walking" | "car" | "public_transport",
     interests: reqData.interests,
+    priorityMode: reqData.priorityMode as "iconic" | "mixed",
+    startTime: (reqData.startTime ?? "normal") as "early" | "normal" | "late",
   };
 
-  const days = generateItinerary(pois, itineraryReq);
+  // Handle single-day regeneration
+  if (reqData.regenerateDayNumber && req.body.existingDays) {
+    const days = regenerateSingleDay(
+      overpassPois,
+      itineraryReq,
+      req.body.existingDays,
+      reqData.regenerateDayNumber
+    );
+    const totalEstimatedCost = days.reduce((s, d) => s + d.totalCost, 0);
+    res.json({
+      city: location.city,
+      country: location.country ?? "",
+      lat: location.lat,
+      lon: location.lon,
+      transportMode: reqData.transportMode,
+      priorityMode: reqData.priorityMode,
+      startTime: reqData.startTime ?? "normal",
+      days,
+      totalEstimatedCost,
+      budgetAmount: reqData.budgetAmount,
+      budgetRemaining: reqData.budgetAmount > 0
+        ? Math.max(0, reqData.budgetAmount - totalEstimatedCost) : 0,
+      generatedAt: new Date().toISOString(),
+    });
+    return;
+  }
 
-  const totalEstimatedCost = days.reduce((sum, d) => sum + d.totalCost, 0);
-  const budgetRemaining =
-    reqData.budgetAmount > 0
-      ? Math.max(0, reqData.budgetAmount - totalEstimatedCost)
-      : 0;
+  const days = generateItinerary(overpassPois, itineraryReq);
+  const totalEstimatedCost = days.reduce((s, d) => s + d.totalCost, 0);
 
   res.json({
     city: location.city,
@@ -103,10 +117,13 @@ router.post("/itinerary/generate", async (req, res) => {
     lat: location.lat,
     lon: location.lon,
     transportMode: reqData.transportMode,
+    priorityMode: reqData.priorityMode,
+    startTime: reqData.startTime ?? "normal",
     days,
     totalEstimatedCost,
     budgetAmount: reqData.budgetAmount,
-    budgetRemaining,
+    budgetRemaining: reqData.budgetAmount > 0
+      ? Math.max(0, reqData.budgetAmount - totalEstimatedCost) : 0,
     generatedAt: new Date().toISOString(),
   });
 });

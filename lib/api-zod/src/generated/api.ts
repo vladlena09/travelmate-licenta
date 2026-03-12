@@ -103,6 +103,23 @@ export const GenerateItineraryBody = zod.object({
       "photography",
     ]),
   ),
+  priorityMode: zod
+    .enum(["iconic", "mixed"])
+    .describe(
+      "iconic = prioritize famous landmarks; mixed = blend iconic + hidden gems",
+    ),
+  startTime: zod
+    .enum(["early", "normal", "late"])
+    .optional()
+    .describe(
+      "Preferred start time of day (early=8am, normal=9-10am, late=11am+)",
+    ),
+  regenerateDayNumber: zod
+    .number()
+    .optional()
+    .describe(
+      "If set, only regenerate this specific day number (keep rest unchanged)",
+    ),
 });
 
 export const GenerateItineraryResponse = zod.object({

@@ -90,6 +90,29 @@ export const ItineraryRequestInterestsItem = {
   photography: "photography",
 } as const;
 
+/**
+ * iconic = prioritize famous landmarks; mixed = blend iconic + hidden gems
+ */
+export type ItineraryRequestPriorityMode =
+  (typeof ItineraryRequestPriorityMode)[keyof typeof ItineraryRequestPriorityMode];
+
+export const ItineraryRequestPriorityMode = {
+  iconic: "iconic",
+  mixed: "mixed",
+} as const;
+
+/**
+ * Preferred start time of day (early=8am, normal=9-10am, late=11am+)
+ */
+export type ItineraryRequestStartTime =
+  (typeof ItineraryRequestStartTime)[keyof typeof ItineraryRequestStartTime];
+
+export const ItineraryRequestStartTime = {
+  early: "early",
+  normal: "normal",
+  late: "late",
+} as const;
+
 export interface ItineraryRequest {
   city: string;
   country?: string;
@@ -107,6 +130,12 @@ export interface ItineraryRequest {
   travelProfile: ItineraryRequestTravelProfile;
   transportMode: ItineraryRequestTransportMode;
   interests: ItineraryRequestInterestsItem[];
+  /** iconic = prioritize famous landmarks; mixed = blend iconic + hidden gems */
+  priorityMode: ItineraryRequestPriorityMode;
+  /** Preferred start time of day (early=8am, normal=9-10am, late=11am+) */
+  startTime?: ItineraryRequestStartTime;
+  /** If set, only regenerate this specific day number (keep rest unchanged) */
+  regenerateDayNumber?: number;
 }
 
 export interface TransportSegment {

@@ -1,0 +1,128 @@
+Continue improving the existing TravelMate project and keep this version as the final mobile travel planner experience.
+
+Important:
+- do not redesign the landing page from scratch
+- do not break the current working itinerary + map layout
+- keep the current premium dark violet style
+- focus on realism, transport logic, budget logic, and final polish
+
+Implement the following improvements:
+
+1. Improve POI realism and attraction quality
+- prioritize iconic, well-known, and truly relevant attractions for each city
+- avoid random minor places unless they are selected as hidden gems intentionally
+- reduce weak or generic POIs
+- prefer famous landmarks, important museums, historic centers, viewpoints, promenades, and meaningful tourist places
+
+2. Add a manual budget input
+- let the user enter an exact amount
+- support budget per trip
+- optionally prepare structure for budget per day
+- adapt itinerary quality to the entered amount:
+  - lower budget -> more free attractions
+  - medium budget -> mix of free and paid
+  - higher budget -> premium optional experiences
+
+3. Improve cost logic
+- clearly distinguish:
+  - free
+  - paid
+  - optional paid entry / optional premium experience
+- examples:
+  - park = free
+  - museum = paid
+  - tower exterior = free, summit = optional paid
+- improve total cost summary
+- show free attractions count and paid attractions count if possible
+
+4. Improve transport mode behavior
+Replace generic transit behavior with real transport-specific logic:
+
+Walking:
+- compact routes
+- nearby attractions
+- central areas, promenades, parks, squares
+- realistic walking order
+
+Car:
+- allow wider routes and farther attractions
+- show nearby parking suggestions where possible
+- allow viewpoints, panoramas, larger areas outside the center
+
+Public transport:
+- show route with stop-based logic
+- indicate boarding stop and exit stop where possible
+- combine transit segments with short walking segments
+- make the UI clearly show public transport behavior, not generic routing
+
+5. Keep and improve rhythm + traveler profile logic
+Keep:
+- relaxed
+- balanced
+- dynamic
+
+Keep:
+- solo
+- couple
+- family
+- group
+
+Make them influence:
+- number of attractions per day
+- type of places selected
+- travel distance
+- pacing
+
+6. Improve city header and trip summary
+- always show city + country correctly
+- example: Paris, France / Chisinau, Moldova
+- improve top summary with:
+  - trip days
+  - transport mode
+  - total budget
+  - remaining budget
+  - rhythm
+  - traveler profile
+
+7. Improve card quality
+- more elegant cards
+- more natural attraction descriptions
+- cleaner metadata presentation
+- clear labels for duration, category, cost, and must-see
+- add a small transport icon where relevant
+
+8. Improve map details
+- keep numbered markers
+- keep route lines
+- keep day switching behavior
+- improve popup content with better summary:
+  - attraction name
+  - category
+  - duration
+  - cost
+  - optional paid experience if any
+
+9. Add 2 premium features
+A. Regenerate day
+- add a way to regenerate only the selected day
+- keep the rest of the itinerary unchanged
+
+B. Must-see priority toggle
+- allow:
+  - prioritize iconic landmarks
+  - mix iconic landmarks and hidden gems
+
+10. Prepare but do not overcomplicate these future-ready features unless easy to implement now
+- preferred start time:
+  - early morning
+  - normal morning
+  - relaxed late start
+- meal / coffee suggestions
+- weather-aware logic
+
+11. Most important final requirement
+Do not break the current working planner.
+Improve the existing system carefully.
+Preserve the premium look and make the results feel more realistic, more polished, and more thesis-worthy.
+
+Generate real code changes, not just explanations.

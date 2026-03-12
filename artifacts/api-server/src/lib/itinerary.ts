@@ -4,11 +4,14 @@ export interface ItineraryRequest {
   city: string;
   country?: string;
   days: number;
-  budgetAmount: number; // total EUR for the trip (0 = unlimited)
+  budgetAmount: number;
   travelRhythm: "relaxed" | "balanced" | "dynamic";
   travelProfile: "solo" | "couple" | "family" | "group";
   transportMode: "walking" | "car" | "public_transport";
   interests: string[];
+  priorityMode: "iconic" | "mixed";
+  startTime?: "early" | "normal" | "late";
+  regenerateDayNumber?: number;
 }
 
 export interface TransportSegment {
@@ -28,8 +31,11 @@ export interface ItineraryDay {
   totalDuration: number;
   travelDuration: number;
   totalCost: number;
+  freePoisCount: number;
+  paidPoisCount: number;
   budgetUsed: number;
   transportSummary: string;
+  startTimeLabel: string;
 }
 
 // ── Rhythm → attractions per day ─────────────────────────────
@@ -41,26 +47,32 @@ function getAttractionsPerDay(rhythm: string): { min: number; max: number } {
   }
 }
 
-// ── Transport mode → max cluster radius in metres ─────────────
+// ── Transport cluster radius in metres ────────────────────────
 function getClusterRadius(mode: string): number {
   switch (mode) {
     case "walking":          return 2500;
     case "public_transport": return 7000;
-    case "car":              return 25000;
+    case "car":              return 28000;
     default:                 return 5000;
   }
 }
 
-// ── Walking speed constants ───────────────────────────────────
-const WALKING_SPEED_MPS = 1.25; // 4.5 km/h
-
-// ── Speed per transport mode (m/s) ───────────────────────────
+// ── Travel speed per mode (m/s) ───────────────────────────────
 function travelSpeedMps(mode: string): number {
   switch (mode) {
     case "walking":          return 1.25;
-    case "public_transport": return 5.0;  // includes wait time
-    case "car":              return 8.0;  // city driving
+    case "public_transport": return 5.0;
+    case "car":              return 8.5;
     default:                 return 2.0;
+  }
+}
+
+// ── Start time label ─────────────────────────────────────────
+function startTimeLabel(startTime: string | undefined): string {
+  switch (startTime) {
+    case "early":  return "Starting 8:00 AM";
+    case "late":   return "Starting 11:00 AM";
+    default:       return "Starting 9:30 AM";
   }
 }
 
@@ -80,7 +92,7 @@ function distanceMetres(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ── Build transport segments between ordered POIs ─────────────
+// ── Build transport segments ──────────────────────────────────
 function buildSegments(
   pois: Poi[],
   mode: string
@@ -94,27 +106,38 @@ function buildSegments(
     const dist = distanceMetres(from.lat, from.lon, to.lat, to.lon);
     const speed = travelSpeedMps(mode);
     const rawMinutes = dist / speed / 60;
-    // Add boarding overhead for transit
-    const overhead = mode === "public_transport" ? 5 : mode === "car" ? 3 : 0;
-    const durationMinutes = Math.round(rawMinutes + overhead);
+    const overhead = mode === "public_transport" ? 6 : mode === "car" ? 3 : 0;
+    const durationMinutes = Math.max(1, Math.round(rawMinutes + overhead));
     totalTravel += durationMinutes;
 
-    let instruction = "";
     const distLabel =
       dist < 1000 ? `${Math.round(dist)} m` : `${(dist / 1000).toFixed(1)} km`;
+    const isShortWalk = dist < 600;
+
+    let instruction = "";
+    let segMode = mode;
 
     switch (mode) {
       case "walking":
         instruction = `Walk ${distLabel} (~${durationMinutes} min) to ${to.name}`;
         break;
       case "car":
-        instruction = `Drive ${distLabel} (~${durationMinutes} min) to ${to.name}. Look for parking nearby.`;
+        if (dist < 400) {
+          instruction = `Short walk (${Math.round(dist)} m) to ${to.name}`;
+          segMode = "walking";
+        } else {
+          instruction = `Drive ${distLabel} (~${durationMinutes} min) to ${to.name} — look for street parking`;
+        }
         break;
       case "public_transport":
-        if (dist < 600) {
-          instruction = `Short walk (${Math.round(dist)} m) to ${to.name}`;
+        if (isShortWalk) {
+          instruction = `Walk ${Math.round(dist)} m to ${to.name}`;
+          segMode = "walking";
+        } else if (dist < 2000) {
+          instruction = `Walk or take a short bus (${distLabel}, ~${durationMinutes} min) to ${to.name}`;
+          segMode = "walking";
         } else {
-          instruction = `Take bus/metro ${distLabel} (~${durationMinutes} min) to ${to.name}`;
+          instruction = `Metro/bus ${distLabel} (~${durationMinutes - overhead} min + ${overhead} min wait) — board at nearest stop to ${from.name}, exit at ${to.name}`;
         }
         break;
     }
@@ -122,82 +145,87 @@ function buildSegments(
     segments.push({
       fromPoiId: from.id,
       toPoiId: to.id,
-      mode: dist < 600 && mode !== "walking" ? "walking" : mode,
+      mode: segMode,
       durationMinutes,
       distanceMetres: Math.round(dist),
       instruction,
     });
-
-    // Annotate POI with walking info
-    (to as Poi & { walkingMinutesFromPrev?: number; transportNote?: string }).walkingMinutesFromPrev =
-      durationMinutes;
-    (to as Poi & { transportNote?: string }).transportNote = instruction;
   }
 
   return { segments, travelDuration: totalTravel };
 }
 
-// ── Budget-aware scoring ──────────────────────────────────────
+// ── Per-day budget ────────────────────────────────────────────
 function dailyBudget(req: ItineraryRequest): number {
   if (req.budgetAmount <= 0) return Infinity;
   return req.budgetAmount / req.days;
 }
 
+// ── Score a POI for this request ──────────────────────────────
 function scorePoiForRequest(poi: Poi, req: ItineraryRequest): number {
   let score = poi.popularityScore;
 
-  // Interest match
-  if (req.interests.includes(poi.category)) score += 30;
-  if (poi.isMustSee) score += 25;
+  // Interest match bonus
+  if (req.interests.includes(poi.category)) score += 28;
+
+  // Priority mode
+  if (req.priorityMode === "iconic") {
+    if (poi.isMustSee) score += 35;
+    // Penalise low-popularity items
+    if (poi.popularityScore < 60) score -= 20;
+  } else {
+    // mixed: still reward must-see but not as aggressively
+    if (poi.isMustSee) score += 15;
+    // Slight bonus for less-famous items (hidden gems)
+    if (!poi.isMustSee && poi.popularityScore >= 50 && poi.popularityScore < 75) score += 8;
+  }
 
   // Budget compatibility
   const daily = dailyBudget(req);
   if (req.budgetAmount > 0) {
     if (poi.isFree) {
-      score += 20; // always prefer free when on a budget
-    } else if (poi.estimatedCost > daily * 0.6) {
-      // POI alone would eat most of the day budget
-      score -= 40;
-    } else if (poi.estimatedCost > daily * 0.35) {
-      score -= 15;
+      score += 15;
+    } else if (poi.estimatedCost > daily * 0.65) {
+      score -= 45; // too expensive for this budget/day
+    } else if (poi.estimatedCost > daily * 0.4) {
+      score -= 18;
     }
   }
 
-  // Travel profile preferences
+  // Travel profile
   switch (req.travelProfile) {
     case "solo":
-      if (["viewpoint", "photography", "culture", "history", "museum"].includes(poi.category)) score += 14;
+      if (["viewpoint", "photography", "culture", "history", "museum"].includes(poi.category)) score += 12;
+      if (poi.category === "nightlife") score += 5;
       break;
     case "couple":
-      if (["viewpoint", "relaxation", "gastronomy", "architecture", "nature"].includes(poi.category)) score += 14;
-      if (poi.category === "nightlife") score += 8;
+      if (["viewpoint", "relaxation", "gastronomy", "architecture", "nature"].includes(poi.category)) score += 12;
+      if (poi.category === "nightlife") score += 10;
       break;
     case "family":
       if (["nature", "entertainment", "museum", "relaxation", "landmark"].includes(poi.category)) score += 14;
-      if (poi.category === "nightlife") score -= 40;
+      if (poi.category === "nightlife") score -= 50;
+      if (poi.category === "gastronomy") score += 5;
       break;
     case "group":
-      if (["gastronomy", "landmark", "viewpoint", "culture", "entertainment", "nightlife"].includes(poi.category)) score += 14;
+      if (["gastronomy", "landmark", "viewpoint", "culture", "entertainment", "nightlife"].includes(poi.category)) score += 12;
       break;
   }
 
-  // Transport radius penalty: walking must skip far attractions
-  // (handled at cluster level, this is a soft signal)
   return score;
 }
 
-// ── Nearest-neighbour TSP within a cluster ────────────────────
+// ── Nearest-neighbour TSP ─────────────────────────────────────
 function optimiseRoute(pois: Poi[]): Poi[] {
   if (pois.length <= 2) return [...pois];
 
-  // Start from the highest-scored must-see, else first
+  // Start from the most iconic must-see, else highest-scored
   let startIdx = 0;
   for (let i = 1; i < pois.length; i++) {
-    if (
-      pois[i].isMustSee && pois[i].popularityScore > pois[startIdx].popularityScore
-    ) {
-      startIdx = i;
-    }
+    const curr = pois[i];
+    const best = pois[startIdx];
+    if (curr.isMustSee && !best.isMustSee) { startIdx = i; continue; }
+    if (curr.isMustSee === best.isMustSee && curr.popularityScore > best.popularityScore) startIdx = i;
   }
 
   const result: Poi[] = [pois[startIdx]];
@@ -217,7 +245,7 @@ function optimiseRoute(pois: Poi[]): Poi[] {
   return result;
 }
 
-// ── Cluster POIs into days (greedy geographic spread + radius) ─
+// ── k-means-style geographic clustering ───────────────────────
 function clusterIntoDays(
   pois: Poi[],
   numDays: number,
@@ -226,10 +254,9 @@ function clusterIntoDays(
 ): Poi[][] {
   if (pois.length === 0) return Array.from({ length: numDays }, () => []);
 
-  // Pool: take more than needed so clusters have enough to trim
-  const pool = pois.slice(0, Math.min(numDays * perDay.max + numDays * 4, pois.length));
+  const pool = pois.slice(0, Math.min(numDays * perDay.max + numDays * 5, pois.length));
 
-  // Pick numDays cluster seeds — greedy max-min distance spread
+  // Seeds: greedy max-min distance spread from top-scored
   const seeds: number[] = [0];
   while (seeds.length < numDays && seeds.length < pool.length) {
     let bestIdx = -1;
@@ -245,7 +272,6 @@ function clusterIntoDays(
     seeds.push(bestIdx);
   }
 
-  // Assign each pool POI to its nearest seed, respecting radius limit
   const assigned: Poi[][] = seeds.map(() => []);
   for (let i = 0; i < pool.length; i++) {
     const p = pool[i];
@@ -259,13 +285,11 @@ function clusterIntoDays(
       const dist = distanceMetres(seed.lat, seed.lon, p.lat, p.lon);
       if (dist < minDist) { minDist = dist; bestDay = d; }
     }
-    // Only assign if within radius; otherwise skip (will be backfilled)
     if (minDist <= clusterRadius * 1.5) {
       assigned[bestDay].push(p);
     }
   }
 
-  // Sort within each cluster: must-see first, then by trip score
   const result: Poi[][] = assigned.map((day) => {
     day.sort((a, b) => {
       if (a.isMustSee !== b.isMustSee) return a.isMustSee ? -1 : 1;
@@ -274,7 +298,7 @@ function clusterIntoDays(
     return day.slice(0, perDay.max);
   });
 
-  // Pad underflowing days from unused POIs
+  // Backfill underflowing days
   const usedIds = new Set(result.flat().map((p) => p.id));
   const unused = pois.filter((p) => !usedIds.has(p.id));
   let ui = 0;
@@ -283,7 +307,8 @@ function clusterIntoDays(
       result[d].push(unused[ui++]);
     }
     if (result[d].length === 0) {
-      const biggest = result.reduce((bi, day, i) => (day.length > result[bi].length ? i : bi), 0);
+      const biggest = result.reduce((bi, day, i) =>
+        day.length > result[bi].length ? i : bi, 0);
       if (result[biggest].length > perDay.min) {
         result[d].push(result[biggest].pop()!);
       }
@@ -293,25 +318,29 @@ function clusterIntoDays(
   return result;
 }
 
-// ── Budget filter: trim paid attractions that blow the budget ──
-function applyBudgetFilter(
-  dayPois: Poi[],
-  dayBudget: number
-): Poi[] {
-  if (dayBudget <= 0 || dayBudget === Infinity) return dayPois;
+// ── Budget filter ─────────────────────────────────────────────
+function applyBudgetFilter(dayPois: Poi[], dayBudget: number): Poi[] {
+  if (dayBudget <= 0 || !isFinite(dayBudget)) return dayPois;
 
   const result: Poi[] = [];
   let spent = 0;
 
-  // Must-see + free first pass
+  // First pass: must-see (always include, even if paid)
   for (const p of dayPois) {
-    if (p.isMustSee || p.isFree) {
+    if (p.isMustSee) {
       result.push(p);
       spent += p.estimatedCost;
     }
   }
 
-  // Then add paid non-must-see if budget allows
+  // Second pass: free non-must-see
+  for (const p of dayPois) {
+    if (!p.isMustSee && p.isFree) {
+      result.push(p);
+    }
+  }
+
+  // Third pass: paid non-must-see within remaining budget
   for (const p of dayPois) {
     if (!p.isMustSee && !p.isFree) {
       if (spent + p.estimatedCost <= dayBudget) {
@@ -321,7 +350,6 @@ function applyBudgetFilter(
     }
   }
 
-  // Maintain original order by re-sorting (must-see first then popularity)
   result.sort((a, b) => {
     if (a.isMustSee !== b.isMustSee) return a.isMustSee ? -1 : 1;
     return b.popularityScore - a.popularityScore;
@@ -330,10 +358,9 @@ function applyBudgetFilter(
   return result;
 }
 
-// ── Transport day summary ─────────────────────────────────────
+// ── Transport summary text ────────────────────────────────────
 function buildTransportSummary(
   mode: string,
-  pois: Poi[],
   segments: TransportSegment[]
 ): string {
   const totalDist = segments.reduce((s, seg) => s + seg.distanceMetres, 0);
@@ -342,91 +369,137 @@ function buildTransportSummary(
 
   switch (mode) {
     case "walking":
-      return `All on foot — ${distLabel} total walking, ${segments.length} segments`;
-    case "car":
-      return `By car — ${distLabel} total driving. Parking available near most sights.`;
-    case "public_transport": {
+      return `${distLabel} on foot across ${segments.length + 1} stops`;
+    case "car": {
+      const drivingSegs = segments.filter((s) => s.mode === "car").length;
       const walkSegs = segments.filter((s) => s.mode === "walking").length;
-      const transitSegs = segments.filter((s) => s.mode !== "walking").length;
-      return `${transitSegs} transit leg${transitSegs !== 1 ? "s" : ""} + ${walkSegs} short walk${walkSegs !== 1 ? "s" : ""} (${distLabel} total)`;
+      return `${drivingSegs} drive${drivingSegs !== 1 ? "s" : ""} + ${walkSegs} short walk${walkSegs !== 1 ? "s" : ""} — parking suggested`;
+    }
+    case "public_transport": {
+      const transitSegs = segments.filter((s) => s.mode === "public_transport").length;
+      const walkSegs = segments.filter((s) => s.mode === "walking").length;
+      return `${transitSegs} transit leg${transitSegs !== 1 ? "s" : ""} + ${walkSegs} walk${walkSegs !== 1 ? "s" : ""} (${distLabel})`;
     }
     default:
-      return `${distLabel} total distance`;
+      return `${distLabel} total`;
   }
 }
 
-// ── Day theme string ─────────────────────────────────────────
+// ── Day theme ─────────────────────────────────────────────────
 function getDayTheme(pois: Poi[], dayNum: number): string {
   if (pois.length === 0) return `Day ${dayNum} — City Exploration`;
+
   const counts = pois.reduce((acc: Record<string, number>, p) => {
     acc[p.category] = (acc[p.category] ?? 0) + 1;
     return acc;
   }, {});
   const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "landmark";
+
   const themes: Record<string, string[]> = {
     history:       ["Historical Journey", "Ancient Wonders", "Through the Ages"],
     museum:        ["Art & Discovery", "Gallery Day", "Cultural Masterpieces"],
-    nature:        ["Green Escapes", "Nature & Parks", "Outdoor Day"],
+    nature:        ["Green Escapes", "Parks & Gardens", "Outdoor Day"],
     gastronomy:    ["Culinary Trail", "Food & Flavours", "Local Tastes"],
     architecture:  ["Architectural Marvels", "City Icons", "Built Beauties"],
     culture:       ["Cultural Immersion", "Arts & Soul", "Creative Quarter"],
     viewpoint:     ["Panoramic Vistas", "City From Above", "Scenic Highlights"],
     nightlife:     ["Evening Delights", "Night Out", "City After Dark"],
-    landmark:      ["City Icons", "Famous Sights", "Essential Highlights"],
+    landmark:      ["City Highlights", "Famous Sights", "Essential Icons"],
     relaxation:    ["Slow Travel Day", "Rest & Recharge", "Leisure & Calm"],
     photography:   ["Photographer's Route", "Visual Journey", "Picture-Perfect"],
     entertainment: ["Fun & Adventure", "Entertainment Day", "Discover & Play"],
     sports:        ["Active Day", "Sports & Movement", "City in Motion"],
   };
+
   const opts = themes[dominant] ?? ["City Exploration", "Discovery Day", "Urban Adventure"];
-  const dayNames = ["First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth", "Eleventh", "Twelfth", "Thirteenth", "Fourteenth"];
+  const dayNames = [
+    "First", "Second", "Third", "Fourth", "Fifth",
+    "Sixth", "Seventh", "Eighth", "Ninth", "Tenth",
+    "Eleventh", "Twelfth", "Thirteenth", "Fourteenth",
+  ];
   const dayName = dayNames[dayNum - 1] ?? `Day ${dayNum}`;
   return `${dayName} Day — ${opts[(dayNum - 1) % opts.length]}`;
 }
 
+// ── Build a single ItineraryDay ───────────────────────────────
+function buildDay(
+  rawPois: Poi[],
+  req: ItineraryRequest,
+  dayNum: number,
+  cumBudget: number
+): ItineraryDay {
+  const daily = dailyBudget(req);
+  const filtered = applyBudgetFilter(rawPois, daily);
+  const routed = optimiseRoute(filtered.length > 0 ? filtered : rawPois);
+
+  const { segments, travelDuration } = buildSegments(routed, req.transportMode);
+  const totalDuration = routed.reduce((s, p) => s + p.estimatedDuration, 0);
+  const totalCost = routed.reduce((s, p) => s + p.estimatedCost, 0);
+  const freePoisCount = routed.filter((p) => p.isFree).length;
+  const paidPoisCount = routed.filter((p) => !p.isFree).length;
+
+  return {
+    dayNumber: dayNum,
+    theme: getDayTheme(routed, dayNum),
+    pois: routed,
+    segments,
+    totalDuration,
+    travelDuration,
+    totalCost,
+    freePoisCount,
+    paidPoisCount,
+    budgetUsed: cumBudget + totalCost,
+    transportSummary: buildTransportSummary(req.transportMode, segments),
+    startTimeLabel: startTimeLabel(req.startTime),
+  };
+}
+
 // ── Main export ──────────────────────────────────────────────
-export function generateItinerary(
-  pois: Poi[],
-  req: ItineraryRequest
-): ItineraryDay[] {
+export function generateItinerary(pois: Poi[], req: ItineraryRequest): ItineraryDay[] {
   if (pois.length === 0) return [];
 
   const perDay = getAttractionsPerDay(req.travelRhythm);
   const clusterRadius = getClusterRadius(req.transportMode);
-  const daily = dailyBudget(req);
 
-  // Score and rank
   const scoredPois = pois
     .map((p) => ({ poi: p, score: scorePoiForRequest(p, req) }))
     .sort((a, b) => b.score - a.score)
     .map((s) => s.poi);
 
-  // Cluster geographically
   const dayClusters = clusterIntoDays(scoredPois, req.days, perDay, clusterRadius);
 
-  // Build days
   let cumBudget = 0;
   return dayClusters.map((rawPois, idx) => {
-    // Apply budget filter per day
-    const filtered = applyBudgetFilter(rawPois, daily);
-    // Optimise route within cluster
-    const routed = optimiseRoute(filtered.length > 0 ? filtered : rawPois);
-
-    const { segments, travelDuration } = buildSegments(routed, req.transportMode);
-    const totalDuration = routed.reduce((s, p) => s + p.estimatedDuration, 0);
-    const totalCost = routed.reduce((s, p) => s + p.estimatedCost, 0);
-    cumBudget += totalCost;
-
-    return {
-      dayNumber: idx + 1,
-      theme: getDayTheme(routed, idx + 1),
-      pois: routed,
-      segments,
-      totalDuration,
-      travelDuration,
-      totalCost,
-      budgetUsed: cumBudget,
-      transportSummary: buildTransportSummary(req.transportMode, routed, segments),
-    };
+    const day = buildDay(rawPois, req, idx + 1, cumBudget);
+    cumBudget = day.budgetUsed;
+    return day;
   });
+}
+
+// ── Re-generate a single day (keeping others unchanged) ───────
+export function regenerateSingleDay(
+  pois: Poi[],
+  req: ItineraryRequest,
+  existingDays: ItineraryDay[],
+  dayNumber: number
+): ItineraryDay[] {
+  // Collect IDs already used by other days
+  const otherDays = existingDays.filter((d) => d.dayNumber !== dayNumber);
+  const usedIds = new Set(otherDays.flatMap((d) => d.pois.map((p) => p.id)));
+
+  // Available POIs for the regenerated day
+  const available = pois
+    .filter((p) => !usedIds.has(p.id))
+    .map((p) => ({ poi: p, score: scorePoiForRequest(p, req) }))
+    .sort((a, b) => b.score - a.score)
+    .map((s) => s.poi);
+
+  const perDay = getAttractionsPerDay(req.travelRhythm);
+  const cumBudget = otherDays
+    .filter((d) => d.dayNumber < dayNumber)
+    .reduce((s, d) => s + d.totalCost, 0);
+
+  const newDay = buildDay(available.slice(0, perDay.max + 4), req, dayNumber, cumBudget);
+
+  return existingDays.map((d) => (d.dayNumber === dayNumber ? newDay : d));
 }

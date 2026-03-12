@@ -26,6 +26,8 @@ const DEFAULT_REQUEST: Partial<ItineraryRequest> = {
   travelProfile: 'couple',
   transportMode: 'walking',
   interests: [],
+  priorityMode: 'iconic',
+  startTime: 'normal',
 };
 
 export const useTripStore = create<TripState>((set) => ({
@@ -44,11 +46,10 @@ export const useTripStore = create<TripState>((set) => ({
   selectedDay: 1,
   setSelectedDay: (day) => set({ selectedDay: day }),
 
-  reset: () =>
-    set({
-      step: 1,
-      result: null,
-      selectedDay: 1,
-      request: { ...DEFAULT_REQUEST },
-    }),
+  reset: () => set({
+    step: 1,
+    result: null,
+    selectedDay: 1,
+    request: { ...DEFAULT_REQUEST },
+  }),
 }));

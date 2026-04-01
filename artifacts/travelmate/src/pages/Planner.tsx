@@ -10,6 +10,8 @@ import { Slider } from "@/components/ui/slider";
 import { formatCurrency } from "@/lib/utils";
 import { ItineraryMap } from "@/components/Map";
 import { PoiCard } from "@/components/PoiCard";
+import { supabase } from "../supabaseClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   Calendar, Footprints, Users, Car, Heart,
   MapPin, ChevronRight, ArrowLeft, Sparkles, Bus,
@@ -141,7 +143,9 @@ function normalizeItineraryResponse(raw: any): ItineraryResponse {
 }
 
 // ── Main component ────────────────────────────────────────────
-export function Planner() {
+export default function Planner() {
+  const { toast } = useToast();
+  
   const {
     step,
     nextStep,
@@ -222,6 +226,49 @@ export function Planner() {
     }
   };
 
+  const handleSaveItinerary = async () => {
+  if (!result) return;
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.user) {
+    toast({
+      title: "Not logged in",
+      description: "Please log in to save your itinerary.",
+    });
+    return;
+  }
+
+  const user = session.user;
+
+  const { error } = await supabase.from("itineraries").insert([
+    {
+      user_id: user.id,
+      city: result.city,
+      country: result.country,
+      days: result.days.length,
+      budget: result.budgetAmount,
+      itinerary_json: result,
+    },
+  ]);
+
+  if (error) {
+    console.error(error);
+    toast({
+      title: "Save failed",
+      description: "There was an error saving your itinerary.",
+      variant: "destructive",
+    });
+  } else {
+    toast({
+      title: "Itinerary saved",
+      description: "Your trip was saved successfully.",
+    });
+  }
+};
+
   const isGenerating = generateMutation.isPending;
 
   // ── RESULT VIEW ─────────────────────────────────────────────
@@ -249,8 +296,8 @@ export function Planner() {
     const dayStartLabel = (dayData as any).startTimeLabel ?? "Starting 9:30 AM";
 
     return (
-      <div className="h-screen w-full flex flex-col md:flex-row overflow-hidden bg-background">
-        <div className="w-full md:w-[460px] lg:w-[500px] flex flex-col h-full border-r border-border bg-card/20 backdrop-blur-xl z-10 shadow-2xl">
+      <div className="min-h-screen w-full flex flex-col md:flex-row bg-background">
+        <div className="order-2 md:order-1 w-full md:w-[460px] lg:w-[500px] flex flex-col md:h-screen border-r border-border bg-card/20 backdrop-blur-xl z-10 shadow-2xl">
           <div className="p-5 border-b border-border/60 bg-card/60 shrink-0">
             <div className="flex items-start justify-between gap-3 mb-3">
               <div className="min-w-0">
@@ -445,6 +492,12 @@ export function Planner() {
 
                 <div className="pt-4 pb-6">
                   <Button
+                    onClick={handleSaveItinerary}
+                    className="w-full bg-primary text-white mb-3"
+                  >
+                     💾 Save itinerary
+                  </Button>
+                  <Button
                     variant="outline"
                     className="w-full text-muted-foreground"
                     onClick={reset}
@@ -457,14 +510,20 @@ export function Planner() {
           </div>
         </div>
 
-        <div className="flex-1 h-[50vh] md:h-full relative">
-          <ItineraryMap
-            key={selectedDay}
-            pois={dayData.pois}
-            segments={(dayData as any).segments ?? []}
-            transportMode={result.transportMode}
-          />
-        </div>
+        <div
+  className="order-1 md:order-2 w-full md:flex-1 relative shrink-0"
+  style={{
+    height: "50vh",
+    minHeight: "320px",
+  }}
+>
+  <ItineraryMap
+    key={selectedDay}
+    pois={dayData.pois}
+    segments={(dayData as any).segments ?? []}
+    transportMode={result.transportMode}
+  />
+</div>
       </div>
     );
   }

@@ -3,7 +3,11 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Compass, Sparkles, Map } from "lucide-react";
 
-export function Landing() {
+type LandingProps = {
+  onGetStarted: () => void;
+};
+
+export default function Landing({ onGetStarted }: LandingProps) {
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden">
       {/* Background Image */}
@@ -43,8 +47,12 @@ export function Landing() {
           className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-12"
         >
           <Link href="/planner">
-            <Button size="lg" className="w-full sm:w-auto h-16 px-10 text-lg rounded-full">
-              <Compass className="w-5 h-5 mr-2" />
+            <Button
+             onClick={onGetStarted}
+             size="lg"
+             className="w-full sm:w-auto h-16 px-10 text-lg rounded-full"
+            >
+             <Compass className="w-5 h-5 mr-2" />
               Start Planning
             </Button>
           </Link>

@@ -29,20 +29,6 @@ interface MapProps {
   transportMode?: string;
 }
 
-// ── Force Leaflet to recalculate size after mount ─────────────
-function MapResizeFix() {
-  const map = useMap();
-
-  useEffect(() => {
-    const id = window.setTimeout(() => {
-      map.invalidateSize();
-    }, 300);
-
-    return () => window.clearTimeout(id);
-  }, [map]);
-
-  return null;
-}
 
 // ── Fit bounds whenever POIs change ──────────────────────────
 function MapUpdater({ pois }: { pois: Poi[] }) {
@@ -65,6 +51,38 @@ function MapUpdater({ pois }: { pois: Poi[] }) {
 
     return () => window.clearTimeout(id);
   }, [pois, map]);
+
+  return null;
+}
+
+function ForceResize() {
+  const map = useMap();
+
+  useEffect(() => {
+    const run = () => {
+      try {
+        map.invalidateSize();
+      } catch (err) {
+        console.error("Map invalidateSize error:", err);
+      }
+    };
+
+    run();
+
+    const t1 = setTimeout(run, 100);
+    const t2 = setTimeout(run, 300);
+    const t3 = setTimeout(run, 700);
+
+    const onResize = () => run();
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [map]);
 
   return null;
 }
@@ -240,19 +258,17 @@ export function ItineraryMap({
   const center: [number, number] = [pois[0].lat, pois[0].lon];
 
   return (
-    <div
-      ref={containerRef}
-      className="relative w-full h-full min-h-[420px]"
-      style={{ background: "#0d0a1a" }}
+  <div
+    ref={containerRef}
+    className="relative w-full min-h-[420px] overflow-hidden rounded-[20px]"
+    style={{ background: "#0d0a1a", height: "100%" }}
+  >
+    <MapContainer
+      center={center}
+      zoom={13}
+      style={{ width: "100%", height: "100%", minHeight: "420px" }}
     >
-      <MapContainer
-        center={center}
-        zoom={13}
-        style={{ height: "100%", width: "100%", background: "#0d0a1a" }}
-        zoomControl={true}
-        attributionControl={true}
-      >
-        <MapResizeFix />
+      <ForceResize />
         <MapUpdater pois={pois} />
         <UserLocationMarker />
 
